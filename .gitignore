@@ -16,3 +16,8 @@ test.html
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
