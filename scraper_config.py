@@ -7,7 +7,7 @@ BASE_URL = "https://www.screener.in/screen/raw/?sort=&order=&source=&query=Sales
 
 USERNAME = "fiban98106@pidouno.com"
 PASSWORD = "Jack@123"
-
+WEB = 'https://www.screener.in'
 
 def get_chrome_web_driver(options):
     return webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
