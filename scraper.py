@@ -1,3 +1,7 @@
+import sys
+# from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+# caps = DesiredCapabilities.CHROME
+# caps['goog:loggingPrefs'] = {'performance': 'ALL'}
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import NoSuchElementException
 
@@ -69,51 +73,61 @@ class Reporter:
 
     def company_details(self):
         companies = self.creating_links()
-        try:
-            for company in companies:
+        for company in companies:
+            try:
                 self.driver.get(company)
-                time.sleep(2)
-                table_name = "quarters"
-                self.scroll_element(table_name)
-                self.open_sales_expenses(4)
-                page = self.driver.page_source
-                soup = BeautifulSoup(page, "html.parser")
-                data = soup.find_all("table", {"class": "data-table"})
-                self.quarterly_results(data[1])
-                table_name = "profit-loss"
-                self.scroll_element(table_name)
-                time.sleep(2)
-                self.open_sales_expenses(5)
-                page = self.driver.page_source
-                soup = BeautifulSoup(page, "html.parser")
-                data = soup.find_all("table", {"class": "data-table"})
-                self.quarterly_results(data[2])
-                time.sleep(2)
-                table_name = "balance-sheet"
-                self.scroll_element(table_name)
-                time.sleep(2)
-                page = self.driver.page_source
-                soup = BeautifulSoup(page, "html.parser")
-                data = soup.find_all("table", {"class": "data-table"})
-                self.open_balance_sheet()
-                self.quarterly_results(data[3])
+                # time.sleep(2)
+                # table_name = "quarters"
+                # self.scroll_element(table_name)
+                # self.open_sales_expenses(4)
+                # data = self.parse_page()
+                # self.quarterly_results(data[1])
+                # table_name = "profit-loss"
+                # self.scroll_element(table_name)
+                # self.open_sales_expenses(5)
+                # data = self.parse_page()
+                # self.quarterly_results(data[2])
+                # time.sleep(2)
+                # table_name = "balance-sheet"
+                # self.scroll_element(table_name)
+                # time.sleep(2)
+                # self.open_balance_sheet()
+                # data = self.parse_page()
+                # self.quarterly_results(data[3])
+                # time.sleep(2)
+                # table_name = "shareholding"
+                # self.scroll_element(table_name)
+                # self.open_shareholding()
+                # time.sleep(2)
+                # data = self.parse_page()
+                # self.quarterly_results(data[6])
+                """basic info"""
+                self.basic_info()
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                print("line->" + str(exc_tb.tb_lineno))
+                print('Exception occurred in complete_details() method->' + str(e))
+                self.driver.save_screenshot("lol.png")
+                continue
 
-        except Exception as e:
-            self.driver.save_screenshot("lol.png")
-            print(e)
+    def parse_page(self):
+        page = self.driver.page_source
+        soup = BeautifulSoup(page, "html.parser")
+        data = soup.find_all("table", {"class": "data-table"})
+        print(data)
+        return data
+
+    cnt = 0
 
     def quarterly_results(self, gdp):
         table1 = gdp
         body = table1.find_all("tr")
         head = body[0]
-        # print(head)
         body_rows = body[1:]
         headings = []
         for item in head.find_all("th"):
             item = item.text.rstrip("\n")
             headings.append(item)
-        print(headings)
-
         all_rows = []
         for row_num in range(len(body_rows)):
             row = []
@@ -121,12 +135,10 @@ class Reporter:
                 aa = re.sub("(\xa0)|(\n)|,", "", row_item.text)
                 row.append(aa.strip())
             all_rows.append(row)
-
-        print(all_rows)
-
         df = pd.DataFrame(data=all_rows, columns=headings)
         print(df.head())
         df.to_csv("file1.csv")
+        return df
 
     def open_sales_expenses(self, num):
         try:
@@ -136,7 +148,7 @@ class Reporter:
             time.sleep(2)
             self.driver.find_element_by_xpath(
                 f'//body[1]/main[1]/section[{num}]/div[2]/table[1]/tbody[1]/tr[3]/td[1]/button[1]').click()
-            time.sleep(3)
+            time.sleep(1)
         except NoSuchElementException:
             time.sleep(1)
             self.driver.find_element_by_xpath(
@@ -144,12 +156,16 @@ class Reporter:
             time.sleep(2)
             self.driver.find_element_by_xpath(
                 f'//body[1]/main[1]/section[{num}]/div[3]/table[1]/tbody[1]/tr[3]/td[1]/button[1]').click()
-            time.sleep(3)
+            time.sleep(1)
 
     def scroll_element(self, table):
-        time.sleep(2)
-        element = self.driver.find_element_by_xpath(f'//*[@id="{table}"]/div[1]/div[1]/h2')
-        self.driver.execute_script("arguments[0].scrollIntoView();", element)
+        try:
+            time.sleep(1)
+            element = self.driver.find_element_by_xpath(f'//*[@id="{table}"]/div[1]/div[1]/h2')
+            self.driver.execute_script("arguments[0].scrollIntoView();", element)
+        except NoSuchElementException:
+            time.sleep(1)
+            self.driver.find_element_by_xpath("/html/body/nav/div[2]/div/div/a[10]").click()
 
     def open_balance_sheet(self):
         time.sleep(2)
@@ -157,19 +173,91 @@ class Reporter:
             f'//body[1]/main[1]/section[6]/div[2]/table[1]/tbody[1]/tr[1]/td[1]/button[1]').click()
         self.driver.find_element_by_xpath(
             f'//body[1]/main[1]/section[6]/div[2]/table[1]/tbody[1]/tr[4]/td[1]/button[1]').click()
-        time.sleep(5)
+        time.sleep(2)
+        self.driver.find_elements_by_class_name("button-plain")[11].click()
+        time.sleep(2)
         self.driver.find_elements_by_class_name("button-plain")[12].click()
-        self.driver.find_elements_by_class_name("button-plain")[13].click()
-        # self.driver.find_element_by_xpath(
-        #     '//*[@id="balance-sheet"]/div[2]/table/tbody/tr[6]/td[1]/button').click()
-        # self.driver.find_element_by_xpath(
-        #     '//*[@id="balance-sheet"]/div[2]/table/tbody/tr[6]/td[1]/button').click()
+        time.sleep(1)
+
+    def open_shareholding(self):
+        try:
+            try:
+                time.sleep(1)
+                data = self.driver.find_element_by_xpath(
+                    "//*[contains(text(), 'FIIs')]").text
+                if data:
+                    self.driver.find_element_by_xpath(
+                        "//*[contains(text(), 'FIIs')]").click()
+                time.sleep(1)
+                diis = self.driver.find_element_by_xpath(
+                    "//*[contains(text(), 'DIIs')]").text
+                if diis:
+                    self.driver.find_element_by_xpath(
+                        "//*[contains(text(), 'DIIs')]").click()
+                    time.sleep(1)
+            except NoSuchElementException:
+                time.sleep(1)
+                diis = self.driver.find_element_by_xpath(
+                    "//*[contains(text(), 'DIIs')]").text
+                if diis:
+                    self.driver.find_element_by_xpath(
+                        "//*[contains(text(), 'DIIs')]").click()
+                    time.sleep(1)
+
+            self.driver.find_elements_by_xpath(
+                "//*[contains(text(), 'Promoters')]")[1].click()
+            self.driver.find_element_by_xpath(
+                "//*[contains(text(), 'Public')]").click()
+
+        except:
+            time.sleep(2)
+            self.driver.find_element_by_xpath(
+                "//*[contains(text(), 'Promoters')]").click()
+            self.driver.find_element_by_xpath(
+                "//*[contains(text(), 'Public')]").click()
+        try:
+            time.sleep(2)
+            self.driver.find_element_by_xpath(
+                "//*[contains(text(), 'Government')]").click()
+        except:
+            pass
+
+    info = {}
+
+    def basic_info(self):
+        name = self.driver.find_element_by_xpath('//*[@id="top"]/div[1]/h1').text
+        link = self.driver.find_element_by_xpath('//*[@id="top"]/div[2]/a[1]/span').text
+        code = self.driver.find_element_by_xpath('//*[@id="top"]/div[2]/a[2]/span').text
+        bse = code.replace("BSE:", '').strip()
+        sub = self.driver.find_element_by_class_name("company-profile-about").text
+        about = sub.replace("ABOUT\n", '')
+        nse = self.nse()
+        sector = self.driver.find_element_by_xpath('//*[@id="peers"]/div[1]/div[1]/p/a[1]').text
+        industry = self.driver.find_element_by_xpath('//*[@id="peers"]/div[1]/div[1]/p/a[2]').text
+
+        info = {
+            "name": name,
+            "link": link,
+            "bse": bse,
+            "nse": nse,
+            "about": about,
+            "industry": industry,
+            "sector": sector,
+        }
+        print(info)
+
+    def nse(self):
+        try:
+            data = self.driver.find_element_by_xpath('//*[@id="top"]/div[2]/a[3]/span').text
+            nse = data.replace("NSE :", '').strip()
+        except NoSuchElementException:
+            return ''
+        return nse
 
 
 def main():
     reporter = Reporter(BASE_URL)
     reporter.run()
-    reporter.creating_links()
     reporter.company_details()
 
 

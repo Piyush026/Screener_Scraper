@@ -1,6 +1,5 @@
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
-
 DIRECTORY = 'reports'
 
 BASE_URL = "https://www.screener.in/screen/raw/?sort=&order=&source=&query=Sales+%3E+-10000000000&limit=100"
