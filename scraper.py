@@ -1,6 +1,8 @@
 import csv
 import os
 import sys
+from functools import reduce
+
 from openpyxl import load_workbook
 from selenium.common.exceptions import NoSuchElementException
 import numpy as np
@@ -19,6 +21,7 @@ from scraper_config import (
     set_automation_as_head_less,
     USERNAME,
     PASSWORD,
+    user,
 
     BASE_URL,
     WEB,
@@ -37,25 +40,21 @@ class Reporter:
         self.driver = get_chrome_web_driver(options)
         self.dfs = []
 
-    def run(self):
+    def run(self, user, password):
         print("starting Script")
         self.driver.get(self.base_url)
         pause = random.randint(2, 5)
         print(f"Sleeping for {pause}...")
         time.sleep(pause)
-        self.login()
+        self.login(user, password)
 
-    def login(self):
+    def login(self, user, password):
         print("start login")
         self.driver.find_element_by_xpath("/html/body/nav/div[1]/div/div[1]/div[3]/div[2]/a[1]").click()
-        self.driver.find_element_by_xpath('//*[@id="id_username"]').send_keys(USERNAME)
+        self.driver.find_element_by_xpath('//*[@id="id_username"]').send_keys(user)
         self.driver.find_element_by_xpath('//*[@id="id_password"]').send_keys(PASSWORD)
         self.driver.find_element_by_xpath('/html/body/main/div/div/div[2]/form/button').click()
-        self.driver.get(self.base_url)
-        self.company_links = self.link()
-
-    def results_per_page(self):
-        self.driver.find_element_by_xpath("//a[contains(text(),'50')]").click()
+        # self.driver.get(self.base_url)
 
     def link(self):
         page = self.driver.page_source
@@ -68,14 +67,9 @@ class Reporter:
                 links.append(x['href'])
         return links
 
-    def creating_links(self):
-        new_list = [WEB + x for x in self.company_links]
-        # print(new_list)
-        return new_list
-
-    def company_details(self):
-        companies = self.creating_links()
-        for company in companies:
+    def company_details(self, lst, filename):
+        # companies = self.creating_links()
+        for company in lst:
             try:
                 self.driver.get(company)
                 """basic info"""
@@ -101,56 +95,45 @@ class Reporter:
                 # time.sleep(2)
                 # data = self.parse_page()
                 # df2 = self.quarterly_results(data[6], bse)
-                self.csvwrite(df, df1, bse, i=0)
+                self.csvwrite(filename, df, df1, bse, i=0)
                 # self.write_shareholding(df2)
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 print("line->" + str(exc_tb.tb_lineno))
-                print('Exception occurred in complete_details() method->' + str(e))
+                print('Exception occurred in company_details() method->' + str(e))
                 self.driver.save_screenshot("lol.png")
                 continue
 
-    def csvwrite(self, n1, n2, num, i=None):
-        filename = "finance.csv"
-        if os.path.isfile(filename):
-            result = pd.concat([n1, n2], axis=1)
-            result['company_id'] = num
-            self.dfs.append(result)
-            frame = pd.concat(self.dfs, axis=0)
-            df = pd.read_csv(filename)
-            print("frame", frame)
-            print("df", df)
-            # if frame != df:
-            i += 1
-            frame.to_csv(filename, header=False, mode='a')
-        else:
-            self.check_file()
-            result = pd.concat([n1, n2], axis=1)
-            result['company_id'] = num
-            self.dfs.append(result)
-            frame = pd.concat(self.dfs, axis=0)
+    def csvwrite(self, filename, n1, n2, num, i=None):
+        cnt = 0
 
-            i += 1
-            frame.to_csv(filename, header=False, mode='a')
+        # self.check_file(filename)
+        result = pd.concat([n1, n2], axis=1)
+        result['company_id'] = num
+        print(len(result))
+        self.dfs.append(result)
+        frame = pd.concat(self.dfs, axis=0)
+        i += 1
+        frame.to_csv(filename, header=i == 1)
 
-    def write_shareholding(self, df):
-        file_name = "financial.xlsx"
-        try:
-            writer = pd.ExcelWriter(file_name, engine='openpyxl')
-            print("writer", writer)
-            if os.path.exists(file_name):
-                print("yes")
-                book = load_workbook(file_name)
-                print(book)
-                writer.book = book
-
-            df.to_excel(writer, sheet_name="share")
-            writer.save()
-            writer.close()
-        except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            print("line->" + str(exc_tb.tb_lineno))
-            print('Exception occurred in write_shareholding() method->' + str(e))
+    # def write_shareholding(self, df):
+    #     file_name = "financial.xlsx"
+    #     try:
+    #         writer = pd.ExcelWriter(file_name, engine='openpyxl')
+    #         print("writer", writer)
+    #         if os.path.exists(file_name):
+    #             print("yes")
+    #             book = load_workbook(file_name)
+    #             print(book)
+    #             writer.book = book
+    #
+    #         df.to_excel(writer, sheet_name="share")
+    #         writer.save()
+    #         writer.close()
+    #     except Exception as e:
+    #         exc_type, exc_obj, exc_tb = sys.exc_info()
+    #         print("line->" + str(exc_tb.tb_lineno))
+    #         print('Exception occurred in write_shareholding() method->' + str(e))
 
     def parse_page(self):
         page = self.driver.page_source
@@ -184,20 +167,21 @@ class Reporter:
         df = pd.DataFrame(d)
         return df
 
-    def append_to_csv(self, df, file):
-        with open(file) as f:
-            header = next(csv.reader(f))
-        columns = df.columns
-        for column in set(header) - set(columns):
-            df[column] = ''
-        df = df[header]
-        df.to_csv(file, index=False, header=False, mode='a')
+    # def append_to_csv(self, df, file):
+    #     with open(file) as f:
+    #         header = next(csv.reader(f))
+    #     columns = df.columns
+    #     for column in set(header) - set(columns):
+    #         df[column] = ''
+    #     df = df[header]
+    #     df.to_csv(file, index=False, header=False, mode='a')
 
-    def check_file(self):
-        filename = 'finance.csv'
-        with open(filename, 'w', newline='') as f:
-            w = csv.writer(f)
-            w.writerow(HEADER)
+    # def check_file(self, file):
+    #
+    #     if not os.path.isfile(file):
+    #         with open(file, 'w', newline='') as f:
+    #             w = csv.writer(f)
+    #             w.writerow(HEADER)
 
     def open_sales_expenses(self, num):
         try:
@@ -329,11 +313,18 @@ class Reporter:
             return ''
         return nse
 
+    # def create_links(self):
+    #     lst = []
+    #     for num in range(77):
+    #         url = f"https://www.screener.in/screen/raw/?sort=&order=&source=&query=Sales+%3E+-10000000000&limit=50&page={num}"
+    #         lst.append(url)
+    #     return lst
+
 
 def main():
     reporter = Reporter(BASE_URL)
     reporter.run()
-    reporter.company_details()
+    # reporter.company_details()
 
 
 if __name__ == '__main__':
